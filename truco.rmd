@@ -1,0 +1,85 @@
+---
+title: "Truco"
+author: "Daniel Lopes"
+date: "2022-11-26"
+output: html_document
+---
+
+```{r}
+ranks <- c(4:7, "Q", "J", "K", "A", 2, 3)
+naipes <- c("Ouros", "Espadas", "Copas", "Paus")
+
+baralho = expand.grid(ranks, naipes)
+colnames(baralho) <- c("Rank", "Naipe")
+baralho$Carta = paste(baralho$Rank, "-", baralho$Naipe, sep = "")
+
+embaralhar <- function(baralho){
+  resultado = baralho[sample(1:nrow(baralho), nrow(baralho)), ]
+  return(resultado)
+}
+
+distribuir_cartas_truco <- function(baralho){
+  mao_jogadores = matrix(data = rep(0, 12), ncol = 3) |> as.data.frame(row.names = paste("Jogador_", 1:4, sep = ""))
+  names(mao_jogadores) = c("Carta_1", "Carta_2", "Carta_3")
+  for(k in 1:3){
+    for(l in 1:4){
+      mao_jogadores[l,k] = baralho[1,3]
+      baralho = baralho[-1,]
+    }
+  }
+  return(mao_jogadores)
+}
+
+montar_jogo_truco <- function(baralho){
+  baralho_embaralhado = embaralhar(baralho)
+  cartas_jogadores = distribuir_cartas_truco(baralho_embaralhado)
+  vira = baralho_embaralhado[13,3]
+  if(baralho_embaralhado[13,1] != 3){
+    manilha = ranks[match(baralho_embaralhado[13,1], ranks) + 1]
+  }
+  else{manilha = as.character(4)}
+  jogo = list(cartas_jogadores, vira)
+  return(jogo)
+}
+
+
+```
+
+```{r}
+get_naipe_rank <- function(carta){
+  resultado = baralho[which(baralho$Carta == carta),]
+  return(t(resultado[,1:2]))
+}
+get_naipe_rank <- Vectorize(get_naipe_rank)
+
+carta_mais_forte <- function(mao, manilha){
+  mao_vetor = unlist(mao)
+  mao_limpa = get_naipe_rank(mao_vetor)
+  score_1 = match(mao_limpa[1,1], ranks)
+  score_2 = match(mao_limpa[1,2], ranks)
+  score_3 = match(mao_limpa[1,3], ranks)
+  score_4 = match(mao_limpa[1,4], ranks)
+  
+  if(mao_limpa[1,1] == manilha){
+    score_1 = 100 + match(mao_limpa[2,1], naipes)
+  }
+  if(mao_limpa[1,2] == manilha){
+    score_1 = 100 + match(mao_limpa[2,2], naipes)
+  }
+  if(mao_limpa[1,3] == manilha){
+    score_1 = 100 + match(mao_limpa[2,3], naipes)
+  }
+  if(mao_limpa[1,4] == manilha){
+    score_1 = 100 + match(mao_limpa[2,4], naipes)
+  }
+  
+  scores = c(score_1, score_2, score_3, score_4)
+  maximo = max(scores)
+  
+  vencedor = match(maximo, scores)
+  
+  return(vencedor)
+}
+```
+
+

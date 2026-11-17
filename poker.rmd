@@ -1,0 +1,480 @@
+---
+title: "Poker"
+author: "Daniel Lopes"
+date: "2022-11-25"
+output: html_document
+---
+
+```{r}
+ranks <- c(2:10, "J", "Q", "K", "A")
+naipes <- c("Paus", "Ouros", "Copas", "Espadas")
+
+baralho = expand.grid(ranks, naipes)
+colnames(baralho) <- c("Rank", "Naipe")
+baralho$Carta = paste(baralho$Rank, "-", baralho$Naipe, sep = "")
+
+embaralhar <- function(baralho){
+  resultado = baralho[sample(1:nrow(baralho), nrow(baralho)), ]
+  return(resultado)
+}
+
+distribuir_cartas_poker <- function(baralho, n_jogadores = 2){
+  if(n_jogadores > 23){
+    stop("Número de jogadores maior que 23.")
+  }
+  
+  mao_jogadores = matrix(data = rep(0, n_jogadores*2), ncol = 2) |> as.data.frame(row.names = paste("Jogador_", 1:n_jogadores, sep = ""))
+  names(mao_jogadores) = c("Carta_1", "Carta_2")
+  
+  for(k in 1:2){
+    for(l in 1:n_jogadores){
+      mao_jogadores[l,k] = baralho[1,3]
+      baralho = baralho[-1,]
+    }
+  }
+  
+  return(mao_jogadores)
+}
+
+descer_cartas <- function(baralho, n_jogadores = 2){
+  baralho = baralho[(2*n_jogadores+1):nrow(baralho), ]
+  flop = baralho[2:4,3]
+  turn = baralho[6,3]
+  river = baralho[8,3]
+  mesa = data.frame(t(c(flop, turn, river)))
+  colnames(mesa) = c("Flop_1", "Flop_2", "Flop_3", "Turn", "River")
+  return(mesa)
+}
+
+montar_jogo_poker <- function(n_jogadores = 2){
+  baralho_embaralhado = embaralhar(baralho)
+  cartas_jogadores = distribuir_cartas_poker(baralho_embaralhado, n_jogadores)
+  bordo = descer_cartas(baralho_embaralhado, n_jogadores)
+  jogo = list(cartas_jogadores, bordo)
+  return(jogo)
+}
+
+get_naipe_rank <- function(carta){
+  resultado = baralho[which(baralho$Carta == carta),]
+  return(t(resultado[,1:2]))
+}
+get_naipe_rank <- Vectorize(get_naipe_rank)
+```
+
+```{r}
+montar_jogo_poker()
+```
+
+```{r}
+is_flush <-function(mao){
+  mao_limpo = get_naipe_rank(mao) |> as.data.frame()
+  iguais = mao_limpo[2,] |> unlist() |> unique() |> length()
+  if(iguais == 1){argumento = TRUE}
+  else{argumento = FALSE}
+  high = ranks[(match(mao_limpo[1,], ranks) |> max())]
+  retorno = data.frame("Argumento" = argumento, "High" = high)
+  return(retorno)
+}
+```
+
+```{r}
+is_straigth <- function(mao){
+  mao_limpo = get_naipe_rank(mao) |> as.data.frame()
+  valores_ranks = match(mao_limpo[1,], ranks) |> sort()
+  if(all(abs(diff(valores_ranks)) == 1)){argumento = TRUE}
+  else{argumento = FALSE}
+  special_straigth = c(1, 2, 3, 4, 13)
+  if(all(valores_ranks == special_straigth)){
+    argumento = TRUE
+    high = 5
+  }
+  else{
+    high = ranks[(match(mao_limpo[1,], ranks) |> max())]
+  }
+  retorno = data.frame("Argumento" = argumento, "High" = high)
+  return(retorno)
+}
+```
+
+```{r}
+is_straigth_flush <- function(mao){
+  q1 = is_flush(mao)[1,1]
+  q2 = is_straigth(mao)[1,1]
+  if(q1 && q2){argumento = TRUE}
+  else{argumento = FALSE}
+  high = is_straigth(mao)[1,2]
+  retorno = data.frame("Argumento" = argumento, "High" = high)
+  return(retorno)
+}
+```
+
+```{r}
+is_quads <- function(mao){
+  mao_limpo = get_naipe_rank(mao) |> as.data.frame()
+  valores_ranks = match(mao_limpo[1,], ranks) |> sort()
+  repeticoes = max(table(valores_ranks))
+  tabela = as.data.frame(table(valores_ranks))
+  if(repeticoes == 4){argumento = TRUE}
+  else{argumento = FALSE}
+  numero = tabela[which(tabela$Freq == max(tabela$Freq)), 1] |> as.vector() |> as.numeric()
+  
+  if(argumento == TRUE){
+     desempate_1 = max(setdiff(valores_ranks, numero), na.rm = TRUE)
+  }
+  else{desempate_1 = 1}
+  
+  retorno = data.frame("Argumento" = argumento, "Valor" = ranks[numero], "Desempate_1" = ranks[desempate_1])
+  return(retorno)
+}
+```
+
+```{r}
+is_trip <- function(mao){
+  mao_limpo = get_naipe_rank(mao) |> as.data.frame()
+  valores_ranks = match(mao_limpo[1,], ranks) |> sort()
+  repeticoes = max(table(valores_ranks))
+  tabela = as.data.frame(table(valores_ranks))
+  if(repeticoes == 3){argumento = TRUE}
+  else{argumento = FALSE}
+  numero = tabela[which(tabela$Freq == max(tabela$Freq)), 1] |> as.vector() |> as.numeric()
+  if(min(tabela$Freq) != 2 && argumento == TRUE){
+    desempate_1 = max(setdiff(valores_ranks, numero), na.rm = TRUE)
+    desempate_2 = max(setdiff(valores_ranks, c(desempate_1, numero)), na.rm = TRUE)
+  }
+  else{
+    desempate_1 = 1
+    desempate_2 = 1
+  }
+  retorno = data.frame("Argumento" = argumento, "Valor" = ranks[numero],
+                       "Desempate_1" = ranks[desempate_1],
+                       "Desempate_2" = ranks[desempate_2])
+  return(retorno)
+}
+```
+
+```{r}
+is_pair <- function(mao){
+  mao_limpo = get_naipe_rank(mao) |> as.data.frame()
+  valores_ranks = match(mao_limpo[1,], ranks) |> sort()
+  repeticoes = max(table(valores_ranks))
+  tabela = as.data.frame(table(valores_ranks))
+  if(repeticoes == 2){argumento = TRUE}
+  else{argumento = FALSE}
+  numero = tabela[which(tabela$Freq == max(tabela$Freq)), 1] |> as.vector() |> as.numeric()
+  numero = numero[1]
+  if(ncol(mao_limpo) == 5 && argumento && nrow(tabela) > 3){
+    desempate_1 = max(setdiff(valores_ranks, numero), na.rm = TRUE)
+    desempate_2 = max(setdiff(valores_ranks, c(desempate_1, numero)), na.rm = TRUE)
+    desempate_3 = max(setdiff(valores_ranks, c(desempate_1, desempate_2, numero)), na.rm = TRUE)
+  }
+  else{
+    desempate_1 = 1
+    desempate_2 = 1
+    desempate_3 = 1
+  }
+  retorno = data.frame("Argumento" = argumento, "Valor" = ranks[numero],
+                       "Desempate_1" = ranks[desempate_1],
+                       "Desempate_2" = ranks[desempate_2],
+                       "Desempate_3" = ranks[desempate_3])
+  return(retorno)
+}
+```
+
+```{r}
+is_fullhouse <- function(mao){
+  mao_limpo = get_naipe_rank(mao) |> as.data.frame()
+  trip_confirm = is_trip(mao)
+  if(trip_confirm[1,1]){
+    mao_filtrado = mao_limpo[,which(mao_limpo[1,] != trip_confirm[1,2])]
+    mao_filtrado_vetor = names(mao_filtrado)
+    pair_confirm = is_pair(mao_filtrado_vetor)
+    menor = pair_confirm[1,2]
+    if(pair_confirm[1,1]){argumento = TRUE}
+    else{argumento = FALSE}
+  }
+  else{argumento = FALSE}
+  maior = trip_confirm[1,2]
+  if(!trip_confirm[1,1]){
+    menor = NA
+  }
+  retorno = data.frame("Argumento" = argumento, "Maior" = maior, "Menor" = menor)
+  return(retorno)
+}
+```
+
+```{r}
+is_twopair <- function(mao){
+  mao_limpo = get_naipe_rank(mao) |> as.data.frame()
+  pair_confirm_1 <- is_pair(mao)
+  if(pair_confirm_1[1,1]){
+    mao_filtrado = mao_limpo[,which(mao_limpo[1,] != pair_confirm_1[1,2])]
+    mao_filtrado_vetor = names(mao_filtrado)
+    pair_confirm_2 = is_pair(mao_filtrado_vetor)
+    if(pair_confirm_2[1,1]){
+      argumento = TRUE
+      par_1 = pair_confirm_1[1,2]
+      par_2 = pair_confirm_2[1,2] 
+    }
+    else{
+      argumento = FALSE
+      par_1 = 1
+      par_2 = 1
+    }
+  }
+  else{
+    argumento = FALSE
+    par_1 = 1
+    par_2 = 1
+  }
+  valores_ranks = match(mao_limpo[1,], ranks) |> sort()
+  tabela = as.data.frame(table(valores_ranks))
+  desempate_1 = tabela[which(tabela$Freq == min(tabela$Freq)), 1] |> as.vector() |> as.numeric()
+  desempate_1 = desempate_1[1]
+
+  retorno = data.frame("Argumento" = argumento,
+                       "Par_Maior" = par_2,
+                       "Par_Menor" = par_1,
+                       "Desempate_1" = ranks[desempate_1])
+  return(retorno)
+}
+```
+
+```{r}
+is_high <- function(mao){
+  argumento = TRUE
+  mao_limpo = get_naipe_rank(mao) |> as.data.frame()
+  valores_ranks = match(mao_limpo[1,], ranks) |> sort(decreasing = TRUE)
+  high = valores_ranks[1]
+  desempate_1 = valores_ranks[2]
+  desempate_2 = valores_ranks[3]
+  desempate_3 = valores_ranks[4]
+  desempate_4 = valores_ranks[5]
+  
+  retorno = data.frame("Argumento" = argumento,
+                       "High" = ranks[high],
+                       "Desempate_1" = ranks[desempate_1],
+                       "Desempate_2" = ranks[desempate_2],
+                       "Desempate_3" = ranks[desempate_3],
+                       "Desempate_4" = ranks[desempate_4])
+  return(retorno)
+}
+```
+
+```{r}
+avalia_mao <- function(mao){
+  if(is_straigth_flush(mao)[1,1]){
+    return("Straigth_Flush")
+  }
+  if(is_quads(mao)[1,1]){
+    return("Quads")
+  }
+  if(is_fullhouse(mao)[1,1]){
+    return("Full_House")
+  }
+  if(is_flush(mao)[1,1]){
+    return("Flush")
+  }
+  if(is_straigth(mao)[1,1]){
+    return("Straigth")
+  }
+  if(is_trip(mao)[1,1]){
+    return("Trips")
+  }
+  if(is_twopair(mao)[1,1]){
+    return("Two_Pair")
+  }
+  if(is_pair(mao)[1,1]){
+    return("Pair")
+  }
+  else{return("High_Card")}
+}
+```
+
+```{r}
+compara_mao <- function(mao_1, mao_2){
+  compara_vetor <- function(vetor_1, vetor_2){
+    for(n in 1:length(vetor_1)){
+      if(vetor_1[n] > vetor_2[n]){
+        return(">")
+      }
+      if(vetor_1[n] < vetor_2[n]){
+        return("<")
+      }
+    }
+    return("=")
+  }
+  
+  scores <- c("High_Card", "Pair", "Two_Pair", "Trips", "Straigth", "Flush", "Full_House", "Quads", "Straigth_Flush")
+  score_mao_1 <- avalia_mao(mao_1) |> match(scores)
+  score_mao_2 <- avalia_mao(mao_2) |> match(scores)
+
+  if(score_mao_1 > score_mao_2){
+    return(">")
+  }
+  if(score_mao_1 < score_mao_2){
+    return("<")
+  }
+  
+  if(score_mao_1 == 1){
+    vetor_1 <- is_high(mao_1)[-1] |> unlist()
+    vetor_2 <- is_high(mao_2)[-1] |> unlist()
+    score_vetor_1 <- match(vetor_1, ranks)
+    score_vetor_2 <- match(vetor_2, ranks)
+    result = compara_vetor(score_vetor_1, score_vetor_2)
+    return(result)
+  }
+  
+  if(score_mao_1 == 2){
+    vetor_1 <- is_pair(mao_1)[-1] |> unlist()
+    vetor_2 <- is_pair(mao_2)[-1] |> unlist()
+    score_vetor_1 <- match(vetor_1, ranks)
+    score_vetor_2 <- match(vetor_2, ranks)
+    result = compara_vetor(score_vetor_1, score_vetor_2)
+    return(result)
+  }
+  
+  if(score_mao_1 == 3){
+    vetor_1 <- is_twopair(mao_1)[-1] |> unlist()
+    vetor_2 <- is_twopair(mao_2)[-1] |> unlist()
+    score_vetor_1 <- match(vetor_1, ranks)
+    score_vetor_2 <- match(vetor_2, ranks)
+    result = compara_vetor(score_vetor_1, score_vetor_2)
+    return(result)
+  }
+  
+  if(score_mao_1 == 4){
+    vetor_1 <- is_trip(mao_1)[-1] |> unlist()
+    vetor_2 <- is_trip(mao_2)[-1] |> unlist()
+    score_vetor_1 <- match(vetor_1, ranks)
+    score_vetor_2 <- match(vetor_2, ranks)
+    result = compara_vetor(score_vetor_1, score_vetor_2)
+    return(result)
+  }
+  
+  if(score_mao_1 == 5){
+    vetor_1 <- is_straigth(mao_1)[-1] |> unlist()
+    vetor_2 <- is_straigth(mao_2)[-1] |> unlist()
+    score_vetor_1 <- match(vetor_1, ranks)
+    score_vetor_2 <- match(vetor_2, ranks)
+    result = compara_vetor(score_vetor_1, score_vetor_2)
+    return(result)
+  }
+  
+  if(score_mao_1 == 6){
+    vetor_1 <- is_flush(mao_1)[-1] |> unlist()
+    vetor_2 <- is_flush(mao_2)[-1] |> unlist()
+    score_vetor_1 <- match(vetor_1, ranks)
+    score_vetor_2 <- match(vetor_2, ranks)
+    result = compara_vetor(score_vetor_1, score_vetor_2)
+    return(result)
+  }
+  
+  if(score_mao_1 == 7){
+    vetor_1 <- is_fullhouse(mao_1)[-1] |> unlist()
+    vetor_2 <- is_fullhouse(mao_2)[-1] |> unlist()
+    score_vetor_1 <- match(vetor_1, ranks)
+    score_vetor_2 <- match(vetor_2, ranks)
+    result = compara_vetor(score_vetor_1, score_vetor_2)
+    return(result)
+  }
+  
+  if(score_mao_1 == 8){
+    vetor_1 <- is_quads(mao_1)[-1] |> unlist()
+    vetor_2 <- is_quads(mao_2)[-1] |> unlist()
+    score_vetor_1 <- match(vetor_1, ranks)
+    score_vetor_2 <- match(vetor_2, ranks)
+    result = compara_vetor(score_vetor_1, score_vetor_2)
+    return(result)
+  }
+  
+  if(score_mao_1 == 9){
+    vetor_1 <- is_straigth_flush(mao_1)[-1] |> unlist()
+    vetor_2 <- is_straigth_flush(mao_2)[-1] |> unlist()
+    score_vetor_1 <- match(vetor_1, ranks)
+    score_vetor_2 <- match(vetor_2, ranks)
+    result = compara_vetor(score_vetor_1, score_vetor_2)
+    return(result)
+  }
+}
+```
+
+```{r}
+best_hand <- function(mao, bordo){
+  combinacoes <- combn(c(mao, bordo), 5) |> as.data.frame()
+  n_colunas = ncol(combinacoes)
+  if(n_colunas == 1){
+    df_mao <- get_naipe_rank(t(combinacoes)) |> as.data.frame()
+    return(df_mao)
+  }
+  melhor_mao = combinacoes[,1] |> unlist()
+  for(n in 1:(n_colunas-1)){
+    combinacoes = combinacoes[-1]
+    mao_candidata = combinacoes[,1] |> unlist()
+    resultado = compara_mao(melhor_mao, mao_candidata)
+    if(resultado == "<"){
+      melhor_mao = mao_candidata
+    }
+  }
+  df_mao <- get_naipe_rank(melhor_mao) |> as.data.frame()
+  
+  return(df_mao)
+}
+```
+
+
+```{r}
+jogar_poker <- function(n_jogadores = 2){
+  colunas = c("Carta_1", "Carta_2", "Carta_3", "Carta_4", "Carta_5")
+  jogo = montar_jogo_poker(n_jogadores)
+  jogadores = jogo[[1]]
+  bordo = jogo[[2]]
+  
+  maos_preflop = jogadores
+  
+  flop_lista = list()
+  turn_lista = list()
+  river_lista = list()
+  for(n in 1:nrow(jogadores)){
+    flop_df = best_hand(unlist(jogadores[n,]), unlist(bordo[,1:3])) |> names() |> t() |>as.data.frame()
+    names(flop_df) = colunas
+    flop_lista[[n]] = flop_df
+    
+    turn_df = best_hand(unlist(jogadores[n,]), unlist(bordo[,1:4])) |> names() |> t() |> as.data.frame()
+    names(turn_df) = colunas
+    turn_lista[[n]] = turn_df
+    
+    river_df = best_hand(unlist(jogadores[n,]), unlist(bordo)) |> names() |> t() |> as.data.frame()
+    names(river_df) = colunas
+    river_lista[[n]] = river_df
+  }
+  
+  maos_flop = do.call(rbind, flop_lista) 
+  maos_turn = do.call(rbind, turn_lista)
+  maos_river = do.call(rbind, river_lista)
+  
+  maos_finais = t(maos_river) |> as.data.frame()
+  vencedor = maos_finais[,1] |> unlist()
+  jogador_vencedor = 1
+  for(k in 1:(nrow(jogadores)-1)){
+    maos_finais = maos_finais[-1]
+    mao_candidata = maos_finais[,1] |> unlist()
+    resultado = compara_mao(vencedor, mao_candidata)
+    if(resultado == "<"){
+      vencedor = mao_candidata
+      jogador_vencedor = k+1
+    }
+  }
+  
+  maos_finais = t(maos_river) |> as.data.frame()
+  ganhou_com = maos_finais[,jogador_vencedor] |> unlist() |> avalia_mao()
+  df_vencedor = data.frame("Vencedor" = jogador_vencedor, "Ganhou_Com" = ganhou_com)
+  partida = list(maos_preflop, maos_flop, maos_turn, maos_river, bordo, df_vencedor)
+  return(partida)
+}
+```
+
+```{r}
+jogar_poker(6)
+```
+
+
