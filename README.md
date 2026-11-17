@@ -1,21 +1,18 @@
-﻿# Poker
+﻿<sub>**Datas:** pasta 23/12/2022 · código 26/11/2022 (`poker.rmd`)</sub>
 
-## Data de criação
+# Poker e Truco (simulação)
 
-Datas inferidas dos metadados dos arquivos em `C:\R\Poker` (Windows).
+Simulações de **Texas Hold'em** (baralho, streets, avaliação de mão) e **Truco** brasileiro (manilhas, vira).
 
-| Referência | Data |
-|------------|------|
-| Pasta criada no disco | 23 de dezembro de 2022 |
-| Primeiro código ou notebook versionado | 26 de novembro de 2022 (`poker.rmd`) |
-| Repositório Git (commit inicial) | 16 de novembro de 2026 |
+## O que o código faz
 
-Projeto local em `C:\R\Poker`.
+| Arquivo | Conteúdo |
+|---------|----------|
+| `poker.rmd` | Estruturas de baralho, flop/turn/river, funções de ranking |
+| `truco.rmd` | Distribuição de cartas, regras de manilha e vira |
 
-## Como usar
+Tudo gerado com `expand.grid` e lógica em R — sem arquivo de dados.
 
-Abra os arquivos `.R`, `.Rmd`, `.py` ou o `.Rproj` nesta pasta no RStudio ou no editor de sua preferência.
+## Como rodar
 
-## Dados grandes
-
-Arquivos acima de 100 MB podem estar listados no `.gitignore`; obtenha-os localmente se o código referenciar esses caminhos.
+Knit os `.rmd` ou rode os chunks no RStudio.
